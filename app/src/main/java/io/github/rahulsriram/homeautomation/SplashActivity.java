@@ -21,6 +21,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.util.ArrayList;
@@ -28,62 +29,48 @@ import java.util.Arrays;
 import java.util.List;
 
 public class SplashActivity extends AppCompatActivity {
-    TextView text;
     ProgressBar progressBar;
     SharedPreferences sp;
-    TextView log;
-    ScrollView scrollView;
-    Integer[] deviceIds;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.i("HomeAutomation", "create");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
-        deviceIds = null;
         sp = getSharedPreferences("HomeAutomation", MODE_PRIVATE);
-        log = (TextView) findViewById(R.id.text_log);
-        scrollView = (ScrollView) findViewById(R.id.log_scroll_view);
-        scrollView.setVisibility(View.INVISIBLE);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
         progressBar.getIndeterminateDrawable().setColorFilter(0xAAFFFFFF, android.graphics.PorterDuff.Mode.MULTIPLY);
-        progressBar.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                scrollView.setVisibility(((scrollView.getVisibility() == View.VISIBLE) ? View.INVISIBLE : View.VISIBLE));
-            }
-        });
-
-        DeviceListRetrieverTask deviceListRetrieverTask = new DeviceListRetrieverTask();
-        deviceListRetrieverTask.execute();
-        DeviceStatusRetrieverTask deviceStatusRetrieverTask = new DeviceStatusRetrieverTask();
-        deviceStatusRetrieverTask.execute();
+        new DeviceListRetrieverTask().execute();
     }
 
     protected String sendCommand(String ipAddr, String cmd) {
         try {
-            String link = "http://" + ipAddr;
+            Log.i("HomeAutomation", "send");
+            String link = "http://" + ipAddr + ":8000/test";
             String data = "cmd=" + cmd;
-            URL url = new URL(link);
+            URL url = new URL(link + "?" + data);
             HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
             httpURLConnection.setRequestMethod("GET");
-            OutputStreamWriter writer = new OutputStreamWriter(httpURLConnection.getOutputStream());
-            writer.write(data);
-            writer.flush();
             BufferedReader reader = new BufferedReader(new InputStreamReader(httpURLConnection.getInputStream()));
             String reply = reader.readLine();
             httpURLConnection.disconnect();
 
             return reply;
         } catch (Exception e) {
-            return e.getClass().toString();
+            e.printStackTrace();
         }
+
+        return null;
     }
 
-    class DeviceListRetrieverTask extends AsyncTask<Void, Void, Void> {
+    class DeviceListRetrieverTask extends AsyncTask<Void, String, Integer[]> {
         String ipAddr;
+        AlertDialog alertDialog;
+        boolean finished;
 
         protected boolean testAddress(String ipAddr) {
             try (Socket socket = new Socket(ipAddr, 80)) {
+                Log.i("HomeAutomation", "Connected: " + ((socket.isConnected())? "true" : "false"));
                 return socket.isConnected();
             } catch (Exception e) {
                 return false;
@@ -91,40 +78,55 @@ public class SplashActivity extends AppCompatActivity {
         }
 
         @Override
-        protected Void doInBackground(Void... voids) {
-            ipAddr = sp.getString("ipAddress", null);
+        protected Integer[] doInBackground(Void... voids) {
+            ipAddr = sp.getString("ipAddress", "");
 
             while (true) {
-                while (!testAddress(ipAddr)) {
-                    Toast.makeText(getApplicationContext(), ":/", Toast.LENGTH_SHORT).show();
+                if (!testAddress(ipAddr)) {
+                    finished = false;
                     publishProgress();
-                }
 
-                String[] temp = sendCommand(ipAddr, "list").split(",");
-                if (temp.length > 0) {
-                    Integer[] list = new Integer[temp.length];
-                    SharedPreferences.Editor editor = sp.edit();
-                    editor.putString("ipAddress", ipAddr);
-                    editor.apply();
-
-                    for (int i = 0; i < list.length; i++) {
-                        list[i] = Integer.parseInt(temp[i]);
+                    while(!finished) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
+                } else {
+                    String temp = sendCommand(ipAddr, "list");
 
-                    deviceIds = list;
-                    break;
+                    if (temp != null) {
+                        String[] temps = temp.split(",");
+                        Log.i("HomeAutomation", Arrays.toString(temps));
+                        Integer[] list = new Integer[temps.length];
+                        SharedPreferences.Editor editor = sp.edit();
+                        editor.putString("ipAddress", ipAddr);
+                        editor.apply();
+
+                        for (int i = 0; i < list.length; i++) {
+                            list[i] = Integer.parseInt(temps[i]);
+                        }
+
+                        return list;
+                    } else {
+                        ipAddr = null;
+                    }
                 }
             }
-
-            return null;
         }
 
         @Override
-        protected void onProgressUpdate(Void... values) {
+        protected void onPostExecute(Integer[] integers) {
+            super.onPostExecute(integers);
+            new DeviceStatusRetrieverTask().execute(integers);
+        }
+
+        @Override
+        protected void onProgressUpdate(String... values) {
             super.onProgressUpdate(values);
-            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(getApplicationContext());
-            LayoutInflater inflater = getLayoutInflater();
-            final View dialogView = inflater.inflate(R.layout.ip_alert_layout, null);
+            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(SplashActivity.this);
+            final View dialogView = View.inflate(getApplicationContext(), R.layout.ip_alert_layout, null);
             dialogBuilder.setCancelable(false);
             dialogBuilder.setView(dialogView);
             dialogBuilder.setTitle("IP Address unavailable");
@@ -133,27 +135,22 @@ public class SplashActivity extends AppCompatActivity {
                 public void onClick(DialogInterface dialog, int whichButton) {
                     EditText ipInput = (EditText) dialogView.findViewById(R.id.ip_address_input);
                     ipAddr = ipInput.getText().toString();
+                    finished = true;
                 }
             });
-            AlertDialog alertDialog = dialogBuilder.create();
+            alertDialog = dialogBuilder.create();
             alertDialog.show();
         }
     }
 
-    class DeviceStatusRetrieverTask extends AsyncTask<Void, Void, Void> {
+    class DeviceStatusRetrieverTask extends AsyncTask<Integer, Void, Void> {
         @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            while(deviceIds == null); //Waiting for DeviceListRetrieverTask to get device ID list
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
+        protected Void doInBackground(Integer... deviceIds) {
             ArrayList<Device> devices = new ArrayList<>();
             String ipAddr = sp.getString("ipAddress", null);
 
             for (Integer deviceId : deviceIds) {
-                String[] reply = sendCommand(ipAddr, "status_" + deviceId).split(",");
+                String[] reply = sendCommand(ipAddr, "get_" + deviceId).split(",");
                 Log.i("HomeAutomation", Arrays.toString(reply));
                 devices.add(new Device(reply[0], deviceId, (Integer.parseInt(reply[1]) == 1)));
             }
@@ -161,6 +158,7 @@ public class SplashActivity extends AppCompatActivity {
             Intent intent = new Intent(SplashActivity.this, MainActivity.class);
             intent.putParcelableArrayListExtra("Devices", devices);
             startActivity(intent);
+            finish();
 
             return null;
         }

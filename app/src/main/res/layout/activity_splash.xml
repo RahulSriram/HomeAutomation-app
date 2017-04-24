@@ -10,13 +10,6 @@
     tools:context="io.github.rahulsriram.homeautomation.SplashActivity"
     android:background="#3F51B5" >
 
-    <ProgressBar
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/progressBar"
-        android:layout_centerVertical="true"
-        android:layout_centerHorizontal="true" />
-
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -26,27 +19,17 @@
         android:shadowColor="#000000"
         android:shadowRadius="5"
         android:textStyle="bold"
-        android:textSize="25dp"
+        android:textSize="25sp"
         android:textColor="#ffffff"
         android:layout_above="@+id/progressBar"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="20dp"
         android:textAlignment="center" />
 
-    <ScrollView
+    <ProgressBar
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/log_scroll_view"
-        android:layout_below="@+id/progressBar"
-        android:layout_alignStart="@+id/splash_label"
-        android:layout_marginTop="85dp"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentBottom="true" >
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:id="@+id/text_log" />
-    </ScrollView>
+        android:id="@+id/progressBar"
+        android:layout_centerVertical="true"
+        android:layout_centerHorizontal="true" />
 </RelativeLayout>
