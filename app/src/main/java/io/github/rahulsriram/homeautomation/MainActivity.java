@@ -1,6 +1,7 @@
 package io.github.rahulsriram.homeautomation;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.support.design.widget.FloatingActionButton;
@@ -28,7 +29,8 @@ public class MainActivity extends AppCompatActivity {
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
         recyclerView.setLayoutManager(layoutManager);
         devices = getIntent().getParcelableArrayListExtra("Devices");
-        RecyclerViewAdapter adapter = new RecyclerViewAdapter(devices);
+        SharedPreferences sp = getSharedPreferences("HomeAutomation", MODE_PRIVATE);
+        RecyclerViewAdapter adapter = new RecyclerViewAdapter(devices, sp.getString("ipAddress", ""));
         recyclerView.setAdapter(adapter);
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {

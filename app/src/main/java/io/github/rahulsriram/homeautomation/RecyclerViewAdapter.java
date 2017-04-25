@@ -1,5 +1,10 @@
 package io.github.rahulsriram.homeautomation;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.os.AsyncTask;
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
@@ -8,16 +13,17 @@ import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
+import java.text.MessageFormat;
 import java.util.List;
 
 public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapter.DeviceViewHolder>{
     List<Device> devices;
+    String ipAddr;
 
-    RecyclerViewAdapter(List<Device> dev) {
+    RecyclerViewAdapter(List<Device> dev, String ip) {
         devices = dev;
-        devices = dev;
+        ipAddr = ip;
     }
 
     @Override
@@ -29,7 +35,7 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapte
     @Override
     public void onBindViewHolder(DeviceViewHolder deviceViewHolder, int i) {
         deviceViewHolder.deviceName.setText(devices.get(i).deviceName);
-        deviceViewHolder.deviceDescription.setText(String.format("#%d", devices.get(i).deviceNumber));
+        deviceViewHolder.deviceDescription.setText(MessageFormat.format("#{0}", String.valueOf(devices.get(i).deviceNumber)));
         deviceViewHolder.deviceState.setChecked(devices.get(i).deviceState);
     }
 
@@ -43,7 +49,7 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapte
         super.onAttachedToRecyclerView(recyclerView);
     }
 
-    public static class DeviceViewHolder extends RecyclerView.ViewHolder {
+    public class DeviceViewHolder extends RecyclerView.ViewHolder {
         CardView cardView;
         TextView deviceName;
         TextView deviceDescription;
@@ -58,11 +64,46 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapte
 
             deviceState.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
-                public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-                    //TODO: Add set_deviceNumber_1 or 0 code
+                public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
+                    if (compoundButton.isPressed()) {
+                        String cmd = "set_" + String.valueOf(devices.get(getLayoutPosition()).deviceNumber) + "_" + (isChecked ? 1 : 0);
+                        new CommandSenderTask().execute(cmd);
+                    }
                 }
             });
         }
-    }
 
+        class CommandSenderTask extends AsyncTask<String, Void, String> {
+            @Override
+            protected String doInBackground(String... strings) {
+                String reply = null;
+
+                while (reply == null) {
+                    reply = util.sendCommand(ipAddr, strings[0]);
+                }
+
+                return reply;
+            }
+
+            @Override
+            protected void onPostExecute(String reply) {
+                super.onPostExecute(reply);
+
+                switch (reply) {
+                    case "done": //If done, toggle the device state in list and continue
+                        devices.get(getLayoutPosition()).deviceState ^= true;
+                        break;
+
+                    case "error":
+                    case "na": //If error, or device not available, restart app to get latest details from server
+                        Intent mStartActivity = new Intent(itemView.getContext(), SplashActivity.class);
+                        int mPendingIntentId = 123456;
+                        PendingIntent mPendingIntent = PendingIntent.getActivity(itemView.getContext(), mPendingIntentId, mStartActivity, PendingIntent.FLAG_CANCEL_CURRENT);
+                        AlarmManager mgr = (AlarmManager) itemView.getContext().getSystemService(Context.ALARM_SERVICE);
+                        mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
+                        System.exit(0);
+                }
+            }
+        }
+    }
 }
