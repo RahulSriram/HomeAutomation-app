@@ -17,7 +17,6 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     public final int VOICE_RECOGNITION_REQUEST_CODE = 1;
-    List<Device> devices;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,9 +27,9 @@ public class MainActivity extends AppCompatActivity {
         RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
         recyclerView.setLayoutManager(layoutManager);
-        devices = getIntent().getParcelableArrayListExtra("Devices");
+        List<Device> devices = getIntent().getParcelableArrayListExtra("Devices");
         SharedPreferences sp = getSharedPreferences("HomeAutomation", MODE_PRIVATE);
-        RecyclerViewAdapter adapter = new RecyclerViewAdapter(devices, sp.getString("ipAddress", ""));
+        RecyclerViewAdapter adapter = new RecyclerViewAdapter(getApplicationContext(), devices, sp.getString("ipAddress", ""));
         recyclerView.setAdapter(adapter);
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {

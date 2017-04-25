@@ -1,7 +1,5 @@
 package io.github.rahulsriram.homeautomation;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
@@ -18,10 +16,12 @@ import java.text.MessageFormat;
 import java.util.List;
 
 public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapter.DeviceViewHolder>{
+    Context context;
     List<Device> devices;
     String ipAddr;
 
-    RecyclerViewAdapter(List<Device> dev, String ip) {
+    RecyclerViewAdapter(Context c,List<Device> dev, String ip) {
+        context = c;
         devices = dev;
         ipAddr = ip;
     }
@@ -96,12 +96,9 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapte
 
                     case "error":
                     case "na": //If error, or device not available, restart app to get latest details from server
-                        Intent mStartActivity = new Intent(itemView.getContext(), SplashActivity.class);
-                        int mPendingIntentId = 123456;
-                        PendingIntent mPendingIntent = PendingIntent.getActivity(itemView.getContext(), mPendingIntentId, mStartActivity, PendingIntent.FLAG_CANCEL_CURRENT);
-                        AlarmManager mgr = (AlarmManager) itemView.getContext().getSystemService(Context.ALARM_SERVICE);
-                        mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
-                        System.exit(0);
+                        Intent intent = new Intent(itemView.getContext(), SplashActivity.class);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        context.startActivity(intent);
                 }
             }
         }
